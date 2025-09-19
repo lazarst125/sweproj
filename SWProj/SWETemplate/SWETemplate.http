@@ -1,0 +1,6 @@
+@SWETemplate_HostAddress = http://localhost:5173
+
+GET {{SWETemplate_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
