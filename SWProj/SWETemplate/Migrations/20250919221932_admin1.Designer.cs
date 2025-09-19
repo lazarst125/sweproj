@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SWETemplate.Models;
 
@@ -11,9 +12,11 @@ using SWETemplate.Models;
 namespace SWETemplate.Migrations
 {
     [DbContext(typeof(SweContext))]
-    partial class SweContextModelSnapshot : ModelSnapshot
+    [Migration("20250919221932_admin1")]
+    partial class admin1
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
