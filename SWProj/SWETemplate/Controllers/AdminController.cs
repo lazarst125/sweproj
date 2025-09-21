@@ -2,19 +2,19 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SWETemplate.Models;
 using Microsoft.AspNetCore.Authorization;
-using SWETemplate.DTOs; // Added for DTOs
-using SWETemplate.Services; // Added for service
+using SWETemplate.DTOs;
+using SWETemplate.Services;
+using System.Security.Claims; // Added for Claims
+
+//TREBA DA DODAMO ODGOVARAJUCE AUTHORIZE(ROLES="...") za fje tako da se postuje hijerarhija uloga
 
 [ApiController]
 [Route("api/[controller]")]
-//[Authorize(Roles = "Admin,SuperAdmin")]
-//ovo dole treba da se ukljuci tako da bi se prijavili kao admin sad i admin i donor mogu da vrse izmene a treba samo admin
-// u tom slucaju ovo dole ne treba da bude komentarisano
-// [Authorize(Roles = "Admin")] // Samo admini mogu da koriste ovaj kontroler
+[Authorize(Roles = "Admin,SuperAdmin")] // CHECKED: Only Admin and SuperAdmin can access
 public class AdminController : ControllerBase
 {
     private readonly SweContext _context;
-    private readonly IAdminService _adminService; //  Added service
+    private readonly IAdminService _adminService;
 
     public AdminController(SweContext context, IAdminService adminService)
     {
@@ -22,7 +22,6 @@ public class AdminController : ControllerBase
         _adminService = adminService;
     }
 
-    // ===========================
     // GET: svi donori
     [HttpGet("Return donors")]
     [Tags("Donors")]
@@ -53,15 +52,11 @@ public class AdminController : ControllerBase
         return Ok(donations);
     }
 
-    //Novi endpoint za promovisanje korisnika u admina
+    // Novi endpoint za promovisanje korisnika u admina
     [HttpPost("Promote to admin/{id}/promote-to-admin")]
-    //[Authorize(Roles = "SuperAdmin")] // ✅ CHECKED: Samo SuperAdmin može
+    [Authorize(Roles = "SuperAdmin")] // ✅ CHECKED: Only SuperAdmin can promote
     public async Task<IActionResult> PromoteToAdmin(int id)
     {
-        var user = await _context.Users.FindAsync(id);
-        if (user == null) return NotFound("User nije pronađen.");
-
-        // Sačuvano tvoj komentar/pravilo: korisnik će postati admin
         try
         {
             await _adminService.PromoteToAdminAsync(id);
@@ -73,18 +68,11 @@ public class AdminController : ControllerBase
         }
     }
 
-    //CHECKED: Novi endpoint za demotovanje admina
+    // Novi endpoint za demotovanje admina
     [HttpPost("Demote admin/{id}/demote-from-admin")]
-    //[Authorize(Roles = "SuperAdmin")] // CHECKED: Samo SuperAdmin može
+    [Authorize(Roles = "SuperAdmin")] // ✅ CHECKED: Only SuperAdmin can demote
     public async Task<IActionResult> DemoteFromAdmin(int id)
     {
-        var user = await _context.Users.FindAsync(id);
-        if (user == null) return NotFound("User nije pronađen.");
-
-        // CHECKED: SuperAdmin ne može da demotuje samog sebe
-        if (user.IsSuperAdmin)
-            return BadRequest("Ne možete demotovati SuperAdmina.");
-
         try
         {
             await _adminService.DemoteFromAdminAsync(id);
@@ -96,66 +84,6 @@ public class AdminController : ControllerBase
         }
     }
 
-    // ===========================
-    // UPDATE korisnika sa automatskim ažuriranjem Donor/Admin tabela
-    // [HttpPut("users/{id}")]
-    // [Tags("Users")]
-    // public async Task<IActionResult> UpdateUser(int id, User updatedUser)
-    // {
-    //     var user = await _context.Users.FindAsync(id);
-    //     if (user == null) return NotFound("User nije pronađen.");
-
-    //     var oldRole = user.Role;
-    //     user.Email = updatedUser.Email;
-    //     user.Role = updatedUser.Role;
-
-    //     // Ako je role promenjena
-    //     if (oldRole != updatedUser.Role)
-    //     {
-    //         if (updatedUser.Role == "Admin")
-    //         {
-    //             // Briše iz Donors ako postoji
-    //             var donor = await _context.Donors.FirstOrDefaultAsync(d => d.UserId == id);
-    //             if (donor != null) _context.Donors.Remove(donor);
-
-    //             // Dodaje u Admins ako ne postoji
-    //             var admin = await _context.Admins.FirstOrDefaultAsync(a => a.UserId == id);
-    //             if (admin == null)
-    //             {
-    //                 _context.Admins.Add(new Admin { UserId = id });
-    //             }
-    //         }
-    //         else if (updatedUser.Role == "Donor")
-    //         {
-    //             // Briše iz Admins ako postoji
-    //             var admin = await _context.Admins.FirstOrDefaultAsync(a => a.UserId == id);
-    //             if (admin != null) _context.Admins.Remove(admin);
-
-    //             // Dodaje u Donors ako ne postoji
-    //             var donor = await _context.Donors.FirstOrDefaultAsync(d => d.UserId == id);
-    //             if (donor == null)
-    //             {
-    //                 _context.Donors.Add(new Donor
-    //                 {
-    //                     UserId = id,
-    //                     FirstName = "Unknown",
-    //                     LastName = "Unknown",
-    //                     BloodType = "",
-    //                     Points = 0,
-    //                     CanDonate = true,
-    //                     DateOfBirth = DateTime.UtcNow,
-    //                     PhoneNumber = "",
-    //                     Address = "",
-    //                     City = ""
-    //                 });
-    //             }
-    //         }
-    //     }
-
-    //     await _context.SaveChangesAsync();
-    //     return Ok(user);
-    // }
-    
     [HttpPut("Update user/{id}")]
     [Tags("Users")]
     public async Task<IActionResult> UpdateUser(int id, User updatedUser)
@@ -163,20 +91,10 @@ public class AdminController : ControllerBase
         var user = await _context.Users.FindAsync(id);
         if (user == null) return NotFound("User nije pronađen.");
 
-        // ✅ PROVERA: Da li korisnik koga ažuriramo jeste SuperAdmin
-        if (user.IsSuperAdmin)
-        {
-            // ✅ Sprečavamo promenu uloge SuperAdminu
-            if (user.Role != updatedUser.Role)
-                return BadRequest("Ne možete promeniti ulogu SuperAdmina.");
+        // ✅ CHECKED: Prevent changing SuperAdmin role
+        if (user.IsSuperAdmin && user.Role != updatedUser.Role)
+            return BadRequest("Ne možete promeniti ulogu SuperAdmina.");
 
-            // ✅ Dozvoljavamo ažuriranje emaila ali ne i role
-            user.Email = updatedUser.Email;
-            await _context.SaveChangesAsync();
-            return Ok(user);
-        }
-
-        // Mapiraj na DTO i pozovi servis (logika servis)
         try
         {
             var updateDto = new UpdateUserDto
@@ -194,7 +112,6 @@ public class AdminController : ControllerBase
         }
     }
 
-    // ===========================
     // UPDATE krvne grupe donora po ID-u
     [HttpPut("Update donor's bloodtype/{id}/bloodtype")]
     [Tags("Donors")]
@@ -209,7 +126,6 @@ public class AdminController : ControllerBase
         return Ok(donor);
     }
 
-    // ===========================
     // UPDATE donora (ostali podaci)
     [HttpPut("Update donor/{id}")]
     [Tags("Donors")]
@@ -232,7 +148,6 @@ public class AdminController : ControllerBase
         return Ok(donor);
     }
 
-    // ===========================
     // UPDATE donacije
     [HttpPut("Update donations/{id}")]
     [Tags("Donations")]
@@ -252,145 +167,75 @@ public class AdminController : ControllerBase
         return Ok(donation);
     }
 
-    // ===========================
-    // // DELETE donora
-    // [HttpDelete("donors/{id}")]
-    // [Tags("Donors")]
-    // public async Task<IActionResult> DeleteDonor(int id)
-    // {
-    //     var donor = await _context.Donors.FindAsync(id);
-    //     if (donor == null) return NotFound("Donor nije pronađen.");
-
-    //     var user = await _context.Users.FindAsync(donor.UserId);
-    //     if (user != null && user.IsSuperAdmin)
-    //         return BadRequest("Ne možete obrisati SuperAdmina.");
-
-    //     _context.Donors.Remove(donor);
-
-    //     // opcionalno: obriši i korisnika
-    //     var _user = await _context.Users.FindAsync(donor.UserId);
-    //     if (_user != null) _context.Users.Remove(_user);
-
-    //     await _context.SaveChangesAsync();
-    //     return Ok("Donor obrisan.");
-    // }
-
     [HttpDelete("Delete donor/{id}")]
     [Tags("Donors")]
     public async Task<IActionResult> DeleteDonor(int id)
     {
-        var donor = await _context.Donors.FindAsync(id);
-        if (donor == null) return NotFound("Donor nije pronađen.");
-
-        // Proveri da li je korisnik SuperAdmin ili Admin
-        var user = await _context.Users
-            .Include(u => u.AdminProfile) // Uključimo i admin profil ako postoji
-            .FirstOrDefaultAsync(u => u.Id == donor.UserId);
-
-        if (user == null)//slucaj kada imamo donor profil, ali ne postoji user koji mu odgovara
-        { // Ovo bi trebalo da bude nemoguce ako su foreign key constraint-i postavljeni
-            _context.Donors.Remove(donor);
-            await _context.SaveChangesAsync();
+        try
+        {
+            // Koristimo servis metodu umesto direktnog poziva
+            await _adminService.DeleteDonorByIdAsync(id);
             return Ok("Donor obrisan.");
         }
-
-        // Onemogući brisanje SuperAdmina
-        if (user.IsSuperAdmin)
-            return BadRequest("Ne možete obrisati SuperAdmina.");
-
-        // Obriši donor profil
-        _context.Donors.Remove(donor);
-
-        // Ako korisnik ima i admin profil, obriši i njega
-        if (user.AdminProfile != null)
+        catch (InvalidOperationException ex)
         {
-            _context.Admins.Remove(user.AdminProfile);
+            return BadRequest(ex.Message);
         }
-
-        // Obriši korisnika samo ako nema drugih profila
-        // (U ovom slučaju, pošto smo obrisali i donor i admin profil, možemo obrisati i usera)
-        _context.Users.Remove(user);
-
-        await _context.SaveChangesAsync();
-        return Ok("Donor obrisan.");
     }
-
-    // // DELETE korisnika
-    // [HttpDelete("users/{id}")]
-    // [Tags("Users")]
-    // public async Task<IActionResult> DeleteUser(int id)
-    // {
-    //     var user = await _context.Users.FindAsync(id);
-    //     if (user == null) return NotFound("User nije pronađen.");
-
-    //     // obriši povezane donore ili admine
-    //     var donor = await _context.Donors.FirstOrDefaultAsync(d => d.UserId == id);
-    //     if (donor != null) _context.Donors.Remove(donor);
-
-    //     var admin = await _context.Admins.FirstOrDefaultAsync(a => a.UserId == id);
-    //     if (admin != null) _context.Admins.Remove(admin);
-
-    //     _context.Users.Remove(user);
-    //     await _context.SaveChangesAsync();
-    //     return Ok("User obrisan.");
-    // }
 
     [HttpDelete("Delete user/{id}")]
     [Tags("Users")]
     public async Task<IActionResult> DeleteUser(int id)
     {
-        var user = await _context.Users
-            .Include(u => u.DonorProfile)
-            .Include(u => u.AdminProfile)
-            .FirstOrDefaultAsync(u => u.Id == id);
+        try
+        {
+            // ✅ CHECKED: Proveravamo da li je korisnik admin i da li trenutni korisnik može da ga obriše
+            var user = await _context.Users
+                .Include(u => u.AdminProfile)
+                .FirstOrDefaultAsync(u => u.Id == id);
 
-        if (user == null) return NotFound("User nije pronađen.");
+            if (user == null) return NotFound("Korisnik nije pronađen.");
 
-        // ✅ CHECKED: Onemogući brisanje SuperAdmina
-        if (user.IsSuperAdmin)
-            return BadRequest("Ne možete obrisati SuperAdmina.");
+            if (user.IsSuperAdmin)
+                return BadRequest("Ne možete obrisati SuperAdmina.");
 
-        // ✅ CHECKED: Obriši povezane profile
-        if (user.DonorProfile != null)
-            _context.Donors.Remove(user.DonorProfile);
+            if (user.AdminProfile != null && !User.IsInRole("SuperAdmin"))
+                return Forbid("Samo SuperAdmin može obrisati admina.");
 
-        if (user.AdminProfile != null)
-            _context.Admins.Remove(user.AdminProfile);
-
-        _context.Users.Remove(user);
-        await _context.SaveChangesAsync();
-        return Ok("User obrisan.");
+            // ✅ CHECKED: Koristimo servis metodu za brisanje
+            await _adminService.DeleteUserAsync(id);
+            return Ok("Korisnik obrisan.");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     [HttpPost("Give superadmin/{id}")]
     [Tags("Superadmin")]
+    [Authorize(Roles = "SuperAdmin")] // Only SuperAdmin can transfer
     public async Task<IActionResult> TransferSuperAdmin(int id)
     {
-        //Pronađi trenutnog SuperAdmina
         var currentSuperAdmin = await _context.Users
             .FirstOrDefaultAsync(u => u.IsSuperAdmin);
 
         if (currentSuperAdmin == null)
             return NotFound("Trenutni SuperAdmin nije pronađen.");
 
-        // Proveri da li target korisnik postoji
         var targetUser = await _context.Users.FindAsync(id);
         if (targetUser == null)
-            return NotFound("Korisnik kome zelis da das privilegiju superadmina nije pronađen.");
+            return NotFound("Target korisnik nije pronađen.");
 
-        // Proveri da li je target korisnik već SuperAdmin
         if (targetUser.IsSuperAdmin)
-            return BadRequest("Korisnik je vec SuperAdmin.");
+            return BadRequest("Korisnik je već SuperAdmin.");
 
-        // Proveri da li je target korisnik admin
         if (targetUser.Role != "Admin")
             return BadRequest("Samo admini mogu postati SuperAdmin.");
 
-        // Ukloni SuperAdmin status od trenutnog SuperAdmina
         currentSuperAdmin.IsSuperAdmin = false;
-        currentSuperAdmin.Role = "Admin"; // Vrati ulogu na Admin
+        currentSuperAdmin.Role = "Admin";
 
-        // Dodeli SuperAdmin status target korisniku
         targetUser.IsSuperAdmin = true;
         targetUser.Role = "SuperAdmin";
 
@@ -403,15 +248,5 @@ public class AdminController : ControllerBase
             NewSuperAdminId = targetUser.Id
         });
     }
-    // private async Task<bool> IsCurrentUserSuperAdmin(int id)
-    // {
-    //     // Provera da li je trenutni korisnik SuperAdmin
-    //     var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-    //     if (userIdClaim == null) return false;
 
-    //     var userId = int.Parse(userIdClaim.Value);
-    //     var user = await _context.Users.FindAsync(userId);
-
-    //     return user?.IsSuperAdmin ?? false;
-    // }
 }

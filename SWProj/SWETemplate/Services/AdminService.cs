@@ -112,95 +112,89 @@ namespace SWETemplate.Services
 
             if (user == null) throw new InvalidOperationException("User nije pronađen.");
 
-            if (user.IsSuperAdmin)
-            {
-                if (user.Role != updateDto.Role)
-                    throw new InvalidOperationException("Ne možete promeniti ulogu SuperAdmina.");
-
-                user.Email = updateDto.Email;
-                await _context.SaveChangesAsync();
-
-                return MapToDto(user);
-            }
+            if (user.IsSuperAdmin && user.Role != updateDto.Role)
+                throw new InvalidOperationException("Ne mozete promeniti ulogu SuperAdmina.");
 
             var oldRole = user.Role;
             user.Email = updateDto.Email;
             user.Role = updateDto.Role;
 
+            // if (updateDto.Role == "Superadmin")
+            //     TransferSuperAdminAsync(updateDot.id);
+
             if (oldRole != updateDto.Role)
-            {
-                if (updateDto.Role == "Admin")
                 {
-                    var donor = await _context.Donors.FirstOrDefaultAsync(d => d.UserId == id);
-                    if (donor != null) _context.Donors.Remove(donor);
-
-                    var admin = await _context.Admins.FirstOrDefaultAsync(a => a.UserId == id);
-                    if (admin == null)
+                    if (updateDto.Role == "Admin")
                     {
-                        _context.Admins.Add(new Admin
+                        var admin = await _context.Admins.FirstOrDefaultAsync(a => a.UserId == id);
+                        if (admin == null)
                         {
-                            UserId = id,
-                            FirstName = user.DonorProfile?.FirstName ?? "Admin",
-                            LastName = user.DonorProfile?.LastName ?? "User"
-                        });
+                            _context.Admins.Add(new Admin
+                            {
+                                UserId = id,
+                                FirstName = user.DonorProfile?.FirstName!,
+                                LastName = user.DonorProfile?.LastName!
+                            });
+                        }
+                    }
+                    else if (updateDto.Role == "Donor")
+                    {
+                        var admin = await _context.Admins.FirstOrDefaultAsync(a => a.UserId == id);
+                        if (admin != null) _context.Admins.Remove(admin);
+
+                        var donor = await _context.Donors.FirstOrDefaultAsync(d => d.UserId == id);
+                        if (donor == null)
+                        {
+                            _context.Donors.Add(new Donor
+                            {
+                                UserId = id,
+                                FirstName = user.AdminProfile?.FirstName ?? "Unknown",
+                                LastName = user.AdminProfile?.LastName ?? "Unknown",
+                                BloodType = string.Empty,
+                                Points = 0,
+                                CanDonate = true,
+                                DateOfBirth = DateTime.UtcNow,
+                                PhoneNumber = string.Empty,
+                                Address = string.Empty,
+                                City = string.Empty
+                            });
+                        }
                     }
                 }
-                else if (updateDto.Role == "Donor")
-                {
-                    var admin = await _context.Admins.FirstOrDefaultAsync(a => a.UserId == id);
-                    if (admin != null) _context.Admins.Remove(admin);
-
-                    var donor = await _context.Donors.FirstOrDefaultAsync(d => d.UserId == id);
-                    if (donor == null)
-                    {
-                        _context.Donors.Add(new Donor
-                        {
-                            UserId = id,
-                            FirstName = user.AdminProfile?.FirstName ?? "Unknown",
-                            LastName = user.AdminProfile?.LastName ?? "Unknown",
-                            BloodType = string.Empty,
-                            Points = 0,
-                            CanDonate = true,
-                            DateOfBirth = DateTime.UtcNow,
-                            PhoneNumber = string.Empty,
-                            Address = string.Empty,
-                            City = string.Empty
-                        });
-                    }
-                }
-            }
 
             await _context.SaveChangesAsync();
             return MapToDto(user);
         }
 
-        public async Task DeleteDonorAsync(int donorId)
+    public async Task DeleteDonorByIdAsync(int donorId)
+    {
+        var donor = await _context.Donors.FindAsync(donorId);
+        if (donor == null) throw new InvalidOperationException("Donor nije pronađen.");
+
+        var user = await _context.Users
+            .Include(u => u.AdminProfile)
+            .FirstOrDefaultAsync(u => u.Id == donor.UserId);
+
+        if (user == null)
         {
-            var donor = await _context.Donors.FindAsync(donorId);
-            if (donor == null) throw new InvalidOperationException("Donor nije pronađen.");
-
-            var user = await _context.Users
-                .Include(u => u.AdminProfile)
-                .FirstOrDefaultAsync(u => u.Id == donor.UserId);
-
-            if (user == null)
-            {
-                _context.Donors.Remove(donor);
-                await _context.SaveChangesAsync();
-                return;
-            }
-
-            if (user.IsSuperAdmin) throw new InvalidOperationException("Ne možete obrisati SuperAdmina.");
-
             _context.Donors.Remove(donor);
-
-            if (user.AdminProfile != null)
-                _context.Admins.Remove(user.AdminProfile);
-
-            _context.Users.Remove(user);
-
             await _context.SaveChangesAsync();
+            return;
         }
+
+        if (user.IsSuperAdmin) 
+            throw new InvalidOperationException("Ne možete obrisati SuperAdmina.");
+
+        _context.Donors.Remove(donor);
+
+        // Brišemo korisnika samo ako NIJE admin
+        if (user.AdminProfile == null)
+        {
+            _context.Users.Remove(user);
+        }
+
+        await _context.SaveChangesAsync();
+    }
 
         public async Task DeleteUserAsync(int userId)
         {

@@ -11,7 +11,7 @@ Task<IEnumerable<UserResponseDto>> GetAllUsersAsync();
 Task PromoteToAdminAsync(int userId);
 Task DemoteFromAdminAsync(int userId);
 Task<UserResponseDto> UpdateUserAsync(int id, UpdateUserDto updateDto);
-Task DeleteDonorAsync(int donorId);
+Task DeleteDonorByIdAsync(int donorId); 
 Task DeleteUserAsync(int userId);
 Task TransferSuperAdminAsync(int toUserId);
 }

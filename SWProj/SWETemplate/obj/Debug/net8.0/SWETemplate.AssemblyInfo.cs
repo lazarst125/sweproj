@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SWETemplate")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ab32e4ce82ca66364e3e96de61e8f5297b97d071")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3aeecf0c71d1b8719d4876787764cf6a6573b7d9")]
 [assembly: System.Reflection.AssemblyProductAttribute("SWETemplate")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SWETemplate")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
