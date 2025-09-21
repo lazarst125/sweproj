@@ -7,5 +7,5 @@ public class Admin
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
 
-    public User? User { get; set; }
+    public virtual User? User { get; set; }
 }

@@ -28,5 +28,17 @@ public class SweContext : DbContext
             .WithOne()
             .HasForeignKey<Admin>(a => a.UserId)
             .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<User>().HasData(
+        new User
+        {
+            Id = 1,
+            Email = "lazar.stojiljkovic@elfak.rs",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("SuperAdmin123!"),
+            Role = "SuperAdmin",
+            IsSuperAdmin = true,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        base.OnModelCreating(modelBuilder);
     }
 }

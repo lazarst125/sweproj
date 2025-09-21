@@ -74,15 +74,15 @@ builder.Services.AddAuthentication(options =>
 });
 
 // Registracija servisa
-builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IAdminService, AdminService>();
 
-// Dodajte autorizaciju
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("RequireAdminRole", policy => policy.RequireRole("Admin"));
-    options.AddPolicy("RequireDonorRole", policy => policy.RequireRole("Donor"));
-    options.AddPolicy("RequireOrganizerRole", policy => policy.RequireRole("Organizer"));
-});
+// Dodajte autorizaciju - moramo da ubacim JWT za ovo!!!!!!!!!!!! 
+// builder.Services.AddAuthorization(options =>
+// {
+//     options.AddPolicy("RequireAdminRole", policy => policy.RequireRole("Admin"));
+//     options.AddPolicy("RequireDonorRole", policy => policy.RequireRole("Donor"));
+//     options.AddPolicy("RequireOrganizerRole", policy => policy.RequireRole("Organizer"));
+// });
 
 var app = builder.Build();
 

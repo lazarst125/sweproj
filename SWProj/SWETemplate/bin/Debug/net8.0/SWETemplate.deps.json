@@ -8,6 +8,8 @@
     ".NETCoreApp,Version=v8.0": {
       "SWETemplate/1.0.0": {
         "dependencies": {
+          "AutoMapper": "15.0.1",
+          "AutoMapper.Extensions.Microsoft.DependencyInjection": "12.0.1",
           "BCrypt.Net-Next": "4.0.3",
           "Microsoft.AspNetCore.Authentication.JwtBearer": "8.0.11",
           "Microsoft.AspNetCore.Cors": "2.2.0",
@@ -23,6 +25,31 @@
         },
         "runtime": {
           "SWETemplate.dll": {}
+        }
+      },
+      "AutoMapper/15.0.1": {
+        "dependencies": {
+          "Microsoft.Extensions.Logging": "8.0.1",
+          "Microsoft.Extensions.Options": "8.0.2",
+          "Microsoft.IdentityModel.JsonWebTokens": "8.14.0"
+        },
+        "runtime": {
+          "lib/net8.0/AutoMapper.dll": {
+            "assemblyVersion": "15.0.0.0",
+            "fileVersion": "15.0.1.0"
+          }
+        }
+      },
+      "AutoMapper.Extensions.Microsoft.DependencyInjection/12.0.1": {
+        "dependencies": {
+          "AutoMapper": "15.0.1",
+          "Microsoft.Extensions.Options": "8.0.2"
+        },
+        "runtime": {
+          "lib/netstandard2.1/AutoMapper.Extensions.Microsoft.DependencyInjection.dll": {
+            "assemblyVersion": "12.0.0.0",
+            "fileVersion": "12.0.1.0"
+          }
         }
       },
       "Azure.Core/1.38.0": {
@@ -1035,6 +1062,20 @@
       "type": "project",
       "serviceable": false,
       "sha512": ""
+    },
+    "AutoMapper/15.0.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-kNo7iIAi4p4XxoEbfif2WUQtc6RTx+UteiRYPqCOKj+4q4+YaWono06qTxoHBy+0N1HdganA//k5p/VmWw2AMA==",
+      "path": "automapper/15.0.1",
+      "hashPath": "automapper.15.0.1.nupkg.sha512"
+    },
+    "AutoMapper.Extensions.Microsoft.DependencyInjection/12.0.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-+g/K+Vpe3gGMKGzjslMOdqNlkikScDjWfVvmWTayrDHaG/n2pPmFBMa+jKX1r/h6BDGFdkyRjAuhFE3ykW+r1g==",
+      "path": "automapper.extensions.microsoft.dependencyinjection/12.0.1",
+      "hashPath": "automapper.extensions.microsoft.dependencyinjection.12.0.1.nupkg.sha512"
     },
     "Azure.Core/1.38.0": {
       "type": "package",
