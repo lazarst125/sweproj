@@ -4,13 +4,11 @@ using SWETemplate.Models;
 using Microsoft.AspNetCore.Authorization;
 using SWETemplate.DTOs;
 using SWETemplate.Services;
-using System.Security.Claims; // Added for Claims
-
-//TREBA DA DODAMO ODGOVARAJUCE AUTHORIZE(ROLES="...") za fje tako da se postuje hijerarhija uloga
+using System.Security.Claims;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "Admin,SuperAdmin")] // CHECKED: Only Admin and SuperAdmin can access
+[Authorize(Roles = "Admin,SuperAdmin")] // CHECKED: Controller-level auth: Admin or SuperAdmin
 public class AdminController : ControllerBase
 {
     private readonly SweContext _context;
@@ -54,9 +52,13 @@ public class AdminController : ControllerBase
 
     // Novi endpoint za promovisanje korisnika u admina
     [HttpPost("Promote to admin/{id}/promote-to-admin")]
-    [Authorize(Roles = "SuperAdmin")] // ✅ CHECKED: Only SuperAdmin can promote
+    [Authorize(Roles = "SuperAdmin")] // CHECKED: Only SuperAdmin can promote
     public async Task<IActionResult> PromoteToAdmin(int id)
     {
+        // CHECKED: controller checks existence to return proper NotFound
+        var user = await _context.Users.FindAsync(id);
+        if (user == null) return NotFound("User nije pronađen.");
+
         try
         {
             await _adminService.PromoteToAdminAsync(id);
@@ -64,15 +66,19 @@ public class AdminController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            return NotFound(ex.Message);
+            // CHECKED: business-rule violation -> BadRequest
+            return BadRequest(ex.Message);
         }
     }
 
     // Novi endpoint za demotovanje admina
     [HttpPost("Demote admin/{id}/demote-from-admin")]
-    [Authorize(Roles = "SuperAdmin")] // ✅ CHECKED: Only SuperAdmin can demote
+    [Authorize(Roles = "SuperAdmin")] // CHECKED: Only SuperAdmin can demote
     public async Task<IActionResult> DemoteFromAdmin(int id)
     {
+        var user = await _context.Users.FindAsync(id);
+        if (user == null) return NotFound("User nije pronađen.");
+
         try
         {
             await _adminService.DemoteFromAdminAsync(id);
@@ -91,7 +97,7 @@ public class AdminController : ControllerBase
         var user = await _context.Users.FindAsync(id);
         if (user == null) return NotFound("User nije pronađen.");
 
-        // ✅ CHECKED: Prevent changing SuperAdmin role
+        // CHECKED: Prevent changing SuperAdmin role at controller level too (defense in depth)
         if (user.IsSuperAdmin && user.Role != updatedUser.Role)
             return BadRequest("Ne možete promeniti ulogu SuperAdmina.");
 
@@ -173,8 +179,8 @@ public class AdminController : ControllerBase
     {
         try
         {
-            // Koristimo servis metodu umesto direktnog poziva
-            await _adminService.DeleteDonorByIdAsync(id);
+            // CHECKED: servis implementira logiku: ne brisemo user-a ako je admin; brisemo user-a samo ako NIJE admin
+            await _adminService.DeleteDonorAsync(id);
             return Ok("Donor obrisan.");
         }
         catch (InvalidOperationException ex)
@@ -189,7 +195,7 @@ public class AdminController : ControllerBase
     {
         try
         {
-            // ✅ CHECKED: Proveravamo da li je korisnik admin i da li trenutni korisnik može da ga obriše
+            // Provera postojanja i autoriteta se radi u kontroleru:
             var user = await _context.Users
                 .Include(u => u.AdminProfile)
                 .FirstOrDefaultAsync(u => u.Id == id);
@@ -197,12 +203,12 @@ public class AdminController : ControllerBase
             if (user == null) return NotFound("Korisnik nije pronađen.");
 
             if (user.IsSuperAdmin)
-                return BadRequest("Ne možete obrisati SuperAdmina.");
+                return BadRequest("Ne možete obrisati SuperAdmina."); // CHECKED
 
+            // Ako je target admin => samo SuperAdmin sme da obriše
             if (user.AdminProfile != null && !User.IsInRole("SuperAdmin"))
-                return Forbid("Samo SuperAdmin može obrisati admina.");
+                return Forbid("Samo SuperAdmin može obrisati admina."); // CHECKED
 
-            // ✅ CHECKED: Koristimo servis metodu za brisanje
             await _adminService.DeleteUserAsync(id);
             return Ok("Korisnik obrisan.");
         }
@@ -214,39 +220,18 @@ public class AdminController : ControllerBase
 
     [HttpPost("Give superadmin/{id}")]
     [Tags("Superadmin")]
-    [Authorize(Roles = "SuperAdmin")] // Only SuperAdmin can transfer
+    [Authorize(Roles = "SuperAdmin")] // CHECKED: Only SuperAdmin can transfer
     public async Task<IActionResult> TransferSuperAdmin(int id)
     {
-        var currentSuperAdmin = await _context.Users
-            .FirstOrDefaultAsync(u => u.IsSuperAdmin);
-
-        if (currentSuperAdmin == null)
-            return NotFound("Trenutni SuperAdmin nije pronađen.");
-
-        var targetUser = await _context.Users.FindAsync(id);
-        if (targetUser == null)
-            return NotFound("Target korisnik nije pronađen.");
-
-        if (targetUser.IsSuperAdmin)
-            return BadRequest("Korisnik je već SuperAdmin.");
-
-        if (targetUser.Role != "Admin")
-            return BadRequest("Samo admini mogu postati SuperAdmin.");
-
-        currentSuperAdmin.IsSuperAdmin = false;
-        currentSuperAdmin.Role = "Admin";
-
-        targetUser.IsSuperAdmin = true;
-        targetUser.Role = "SuperAdmin";
-
-        await _context.SaveChangesAsync();
-
-        return Ok(new
+        try
         {
-            Message = "SuperAdmin privilegije uspešno prenete",
-            PreviousSuperAdminId = currentSuperAdmin.Id,
-            NewSuperAdminId = targetUser.Id
-        });
+            // CHECKED: koristimo servis metodu umesto da menjamo DB direktno u kontroleru
+            await _adminService.TransferSuperAdminAsync(id);
+            return Ok(new { Message = "SuperAdmin privilegije uspešno prenete", NewSuperAdminId = id });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
-
 }
